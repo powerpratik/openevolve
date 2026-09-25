@@ -25,34 +25,6 @@ from openevolve.utils.format_utils import format_improvement_safe, format_metric
 logger = logging.getLogger(__name__)
 
 
-def _format_metrics(metrics: Dict[str, Any]) -> str:
-    """Safely format metrics, handling both numeric and string values"""
-    formatted_parts = []
-    for name, value in metrics.items():
-        if isinstance(value, (int, float)) and not isinstance(value, bool):
-            try:
-                formatted_parts.append(f"{name}={value:.4f}")
-            except (ValueError, TypeError):
-                formatted_parts.append(f"{name}={value}")
-        else:
-            formatted_parts.append(f"{name}={value}")
-    return ", ".join(formatted_parts)
-
-
-def _format_improvement(improvement: Dict[str, Any]) -> str:
-    """Safely format improvement metrics"""
-    formatted_parts = []
-    for name, diff in improvement.items():
-        if isinstance(diff, (int, float)) and not isinstance(diff, bool):
-            try:
-                formatted_parts.append(f"{name}={diff:+.4f}")
-            except (ValueError, TypeError):
-                formatted_parts.append(f"{name}={diff}")
-        else:
-            formatted_parts.append(f"{name}={diff}")
-    return ", ".join(formatted_parts)
-
-
 class OpenEvolve:
     """
     Main controller for OpenEvolve
@@ -100,9 +72,13 @@ class OpenEvolve:
             random.seed(self.config.random_seed)
             np.random.seed(self.config.random_seed)
 
-            # Create hash-based seeds for different components
+            # Create hash-based seeds for different components. md5 is used only to
+            # derive a deterministic RNG seed from the configured seed, not for any
+            # security purpose; usedforsecurity=False documents that intent.
             base_seed = str(self.config.random_seed).encode("utf-8")
-            llm_seed = int(hashlib.md5(base_seed + b"llm").hexdigest()[:8], 16) % (2**31)
+            llm_seed = int(
+                hashlib.md5(base_seed + b"llm", usedforsecurity=False).hexdigest()[:8], 16
+            ) % (2**31)
 
             # Propagate seed to LLM configurations
             self.config.llm.random_seed = llm_seed
@@ -225,7 +201,7 @@ class OpenEvolve:
         if not bool(getattr(self.config.llm, "manual_mode", False)):
             return
 
-        qdir = (Path(self.output_dir).expanduser().resolve() / "manual_tasks_queue")
+        qdir = Path(self.output_dir).expanduser().resolve() / "manual_tasks_queue"
 
         # Clear stale tasks from previous runs
         if qdir.exists():
@@ -264,7 +240,6 @@ class OpenEvolve:
             Best program found
         """
         max_iterations = iterations or self.config.max_iterations
-
         # Determine starting iteration
         start_iteration = 0
         if checkpoint_path and os.path.exists(checkpoint_path):
@@ -302,6 +277,12 @@ class OpenEvolve:
             )
 
             self.database.add(initial_program)
+
+            # Check for and store artifacts from initial program
+            initial_artifacts = self.evaluator.get_pending_artifacts(initial_program_id)
+            if initial_artifacts:
+                self.database.store_artifacts(initial_program_id, initial_artifacts)
+                logger.info(f"Stored artifacts for initial program")
 
             # Check if combined_score is present in the metrics
             if "combined_score" not in initial_metrics:

@@ -56,6 +56,9 @@ class LLMModelConfig:
     api_key: Optional[str] = None
     name: str = None
 
+    # LLM provider: "openai" (default), "claude_code" (Claude Code CLI)
+    provider: Optional[str] = None
+
     # Custom LLM client
     init_client: Optional[Callable] = None
 
@@ -78,6 +81,9 @@ class LLMModelConfig:
 
     # Reasoning parameters
     reasoning_effort: Optional[str] = None
+
+    # Claude Code CLI budget per call (USD)
+    max_budget_usd: Optional[float] = None
 
     # Manual mode (human-in-the-loop)
     manual_mode: Optional[bool] = None
@@ -168,6 +174,12 @@ class LLMConfig(LLMModelConfig):
 
         # Update models with shared configuration values
         shared_config = {
+            # `provider` must be shared: without it a top-level `llm.provider`
+            # (e.g. "claude_code") never reaches the per-model configs, every model
+            # keeps provider=None, and LLMEnsemble silently routes them all to the
+            # OpenAI backend. Propagation uses overwrite=False, so an explicit
+            # per-model provider still wins.
+            "provider": self.provider,
             "api_base": self.api_base,
             "api_key": self.api_key,
             "temperature": self.temperature,
@@ -222,6 +234,9 @@ class LLMConfig(LLMModelConfig):
 
         # Update models with shared configuration values
         shared_config = {
+            # See the note in __post_init__: `provider` has to be propagated here too,
+            # or rebuilding the models drops a top-level provider back to None.
+            "provider": self.provider,
             "api_base": self.api_base,
             "api_key": self.api_key,
             "temperature": self.temperature,

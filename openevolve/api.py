@@ -38,6 +38,8 @@ def run_evolution(
     iterations: Optional[int] = None,
     output_dir: Optional[str] = None,
     cleanup: bool = True,
+    target_score: Optional[float] = None,
+    checkpoint_path: Optional[str] = None,
 ) -> EvolutionResult:
     """
     Run evolution with flexible inputs - the main library API
@@ -91,7 +93,7 @@ def run_evolution(
         )
     """
     return asyncio.run(
-        _run_evolution_async(initial_program, evaluator, config, iterations, output_dir, cleanup)
+        _run_evolution_async(initial_program, evaluator, config, iterations, output_dir, cleanup, target_score, checkpoint_path)
     )
 
 
@@ -102,6 +104,8 @@ async def _run_evolution_async(
     iterations: Optional[int],
     output_dir: Optional[str],
     cleanup: bool,
+    target_score: Optional[float] = None,
+    checkpoint_path: Optional[str] = None,
 ) -> EvolutionResult:
     """Async implementation of run_evolution"""
 
@@ -157,7 +161,7 @@ async def _run_evolution_async(
             output_dir=actual_output_dir,
         )
 
-        best_program = await controller.run(iterations=iterations)
+        best_program = await controller.run(iterations=iterations,target_score=target_score,checkpoint_path=checkpoint_path)
 
         # Prepare result
         best_score = 0.0
@@ -233,6 +237,51 @@ def _prepare_program(
     temp_files.append(program_file)
 
     return program_file
+
+
+def _extract_lambda_source(source: str) -> Optional[str]:
+    """Extract a single ``lambda ...`` expression from a source snippet.
+
+    ``inspect.getsource`` on a lambda returns the whole line it appears on, e.g.
+    ``evaluator=lambda p: {"score": 0.8},  # comment``. This isolates just the
+    ``lambda p: {"score": 0.8}`` expression using a bracket/string-aware scan so a
+    trailing comma, comment, or the enclosing call's ``)`` do not leak in.
+
+    Returns the lambda expression string, or None if no lambda is found.
+    """
+    idx = source.find("lambda")
+    if idx == -1:
+        return None
+
+    out = []
+    depth = 0
+    quote = None
+    i = idx
+    while i < len(source):
+        c = source[i]
+        if quote is not None:
+            out.append(c)
+            if c == quote and source[i - 1] != "\\":
+                quote = None
+        elif c in "\"'":
+            quote = c
+            out.append(c)
+        elif c in "([{":
+            depth += 1
+            out.append(c)
+        elif c in ")]}":
+            if depth == 0:
+                break  # closing bracket of the enclosing call -> lambda ended
+            depth -= 1
+            out.append(c)
+        elif depth == 0 and (c == "," or c == "#" or c == "\n"):
+            break  # top-level comma / comment / newline ends the lambda
+        else:
+            out.append(c)
+        i += 1
+
+    expr = "".join(out).strip()
+    return expr or None
 
 
 def _prepare_evaluator(

@@ -9,9 +9,8 @@
 *Turn your LLMs into autonomous code optimizers that discover breakthrough algorithms*
 
 <p align="center">
-  <a href="https://github.com/algorithmicsuperintelligence/openevolve/stargazers"><img src="https://img.shields.io/github/stars/algorithmicsuperintelligence/openevolve?style=social" alt="GitHub stars"></a>
   <a href="https://pypi.org/project/openevolve/"><img src="https://img.shields.io/pypi/v/openevolve" alt="PyPI version"></a>
-  <a href="https://pypi.org/project/openevolve/"><img src="https://img.shields.io/pypi/dm/openevolve" alt="PyPI downloads"></a>
+  <a href="https://pepy.tech/projects/openevolve"><img src="https://static.pepy.tech/personalized-badge/openevolve?period=monthly&units=INTERNATIONAL_SYSTEM&left_color=GREY&right_color=GREEN&left_text=downloads%2Fmonth" alt="PyPI Downloads"></a>
   <a href="https://github.com/algorithmicsuperintelligence/openevolve/blob/main/LICENSE"><img src="https://img.shields.io/github/license/algorithmicsuperintelligence/openevolve" alt="License"></a>
 </p>
 
@@ -205,7 +204,7 @@ OpenEvolve implements a sophisticated **evolutionary coding pipeline** that goes
 <details>
 <summary><b>Advanced LLM Integration</b></summary>
 
-- **Universal API**: Works with OpenAI, Google, local models, and proxies
+- **Universal API**: Works with OpenAI, Google, Claude Code CLI, local models, and proxies
 - **Intelligent Ensembles**: Weighted combinations with sophisticated fallback
 - **Test-Time Compute**: Enhanced reasoning through proxy systems (see [OptiLLM setup](#llm-provider-setup))
 - **Plugin Ecosystem**: Support for advanced reasoning plugins
@@ -236,7 +235,7 @@ OpenEvolve implements a sophisticated **evolutionary coding pipeline** that goes
 
 ### Requirements
 - **Python**: 3.10+ 
-- **LLM Access**: Any OpenAI-compatible API
+- **LLM Access**: Any OpenAI-compatible API, or [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code)
 - **Optional**: Docker for containerized runs
 
 ### Installation Options
@@ -359,6 +358,35 @@ llm:
 
 </details>
 
+<details>
+<summary><b>🔮 Claude Code CLI (No API Key)</b></summary>
+
+Use the [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) as the LLM backend — no API keys needed, authentication uses the CLI's OAuth session.
+
+```bash
+# Install and authenticate
+npm install -g @anthropic-ai/claude-code
+claude login
+```
+
+```yaml
+# config.yaml
+llm:
+  provider: "claude_code"
+  models:
+    - name: "sonnet"
+      weight: 0.8
+      max_tokens: 16000
+      max_budget_usd: 1.0
+    - name: "haiku"
+      weight: 0.2
+      max_tokens: 8000
+```
+
+See the [Claude Code quickstart example](examples/claude_code_quickstart/) for a complete walkthrough.
+
+</details>
+
 ## Examples Gallery
 
 <div align="center">
@@ -467,6 +495,10 @@ database:
   migration_interval: 20
   feature_dimensions: ["complexity", "diversity", "performance"]
 
+  # Optional novelty filtering with Gemini embeddings
+  embedding_model: "gemini-embedding-001"
+  similarity_threshold: 0.99
+
 evaluator:
   enable_artifacts: true      # Error feedback to LLM
   cascade_evaluation: true    # Multi-stage testing
@@ -482,6 +514,9 @@ prompt:
   template_dir: "custom_prompts/"
   use_template_stochasticity: true  # Randomized prompts
 ```
+
+For Gemini embeddings, set `GEMINI_API_KEY`. `GOOGLE_API_KEY` is also supported
+as a fallback. OpenEvolve uses Google's OpenAI-compatible endpoint automatically.
 
 <details>
 <summary><b>🎯 Feature Engineering</b></summary>
